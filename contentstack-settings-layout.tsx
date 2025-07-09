@@ -119,7 +119,7 @@ const countries = [
 const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 function AccessControlContent() {
-  const [selectedOptions, setSelectedOptions] = useState<string[]>([])
+  const [selectedOptions, setSelectedOptions] = useState<string[]>(["none"])
   const [showPassword, setShowPassword] = useState(false)
   const [password, setPassword] = useState("")
   const [isBlockMode, setIsBlockMode] = useState(false)
