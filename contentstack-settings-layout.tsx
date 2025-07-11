@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Checkbox } from "@/components/ui/checkbox"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
   Dialog,
   DialogContent,
@@ -41,6 +42,7 @@ import {
   HelpCircle,
   Grid3X3,
   Settings,
+  Search,
 } from "lucide-react"
 
 interface GuestLink {
@@ -72,15 +74,9 @@ const accessControlOptions = [
     icon: Shield,
   },
   {
-    id: "sso",
-    label: "Enterprise SSO (SAML/OIDC)",
-    description: "Single sign-on integration with your identity provider.",
-    icon: Key,
-  },
-  {
-    id: "email",
-    label: "Email Whitelist (magic-link)",
-    description: "Allow specific email addresses or domains via magic links.",
+    id: "magic-link",
+    label: "Magic Link",
+    description: "Create shareable magic links with configurable validity periods.",
     icon: Mail,
   },
   {
@@ -90,16 +86,16 @@ const accessControlOptions = [
     icon: Shield,
   },
   {
-    id: "guest",
-    label: "Guest Invitation Links",
-    description: "Create temporary invitation links with specific permissions.",
-    icon: Users,
-  },
-  {
     id: "geo",
     label: "Geo/Time Restriction",
     description: "Limit access by geographic location and time windows.",
     icon: MapPin,
+  },
+  {
+    id: "sso",
+    label: "Enterprise SSO (SAML/OIDC)",
+    description: "Single sign-on integration with your identity provider.",
+    icon: Key,
   },
 ]
 
@@ -118,6 +114,17 @@ const countries = [
 
 const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
+const contentstackUsers = [
+  { id: "1", name: "John Smith", email: "john.smith@company.com", role: "Admin" },
+  { id: "2", name: "Sarah Johnson", email: "sarah.johnson@company.com", role: "Editor" },
+  { id: "3", name: "Mike Wilson", email: "mike.wilson@company.com", role: "Developer" },
+  { id: "4", name: "Emily Davis", email: "emily.davis@company.com", role: "Content Manager" },
+  { id: "5", name: "David Brown", email: "david.brown@company.com", role: "Reviewer" },
+  { id: "6", name: "Lisa Anderson", email: "lisa.anderson@company.com", role: "Editor" },
+  { id: "7", name: "Tom Miller", email: "tom.miller@company.com", role: "Developer" },
+  { id: "8", name: "Anna Thompson", email: "anna.thompson@company.com", role: "Admin" },
+]
+
 function AccessControlContent() {
   const [selectedOptions, setSelectedOptions] = useState<string[]>(["none"])
   const [showPassword, setShowPassword] = useState(false)
@@ -125,10 +132,13 @@ function AccessControlContent() {
   const [isBlockMode, setIsBlockMode] = useState(false)
   const [selectedCountries, setSelectedCountries] = useState<string[]>([])
   const [selectedDays, setSelectedDays] = useState<string[]>([])
+  const [contentstackUserMode, setContentstackUserMode] = useState("all") // "all" or "specific"
+  const [selectedContentstackUsers, setSelectedContentstackUsers] = useState<string[]>([])
+  const [userSearchTerm, setUserSearchTerm] = useState("")
   const [guestLinks, setGuestLinks] = useState<GuestLink[]>([
     {
       id: "1",
-      name: "Client Review Link",
+      name: "Client Access",
       expiresIn: "7 days",
       scope: "view",
       created: "2024-01-15",
@@ -136,9 +146,9 @@ function AccessControlContent() {
     },
     {
       id: "2",
-      name: "Stakeholder Access",
-      expiresIn: "30 days",
-      scope: "comment",
+      name: "External Review",
+      expiresIn: "24 hours",
+      scope: "edit",
       created: "2024-01-10",
       status: "active",
     },
@@ -168,7 +178,19 @@ function AccessControlContent() {
     setSelectedDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]))
   }
 
-  const createGuestLink = () => {
+  const handleContentstackUserToggle = (userId: string) => {
+    setSelectedContentstackUsers((prev) => 
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    )
+  }
+
+  const filteredContentstackUsers = contentstackUsers.filter(user => 
+    user.name.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+    user.email.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+    user.role.toLowerCase().includes(userSearchTerm.toLowerCase())
+  )
+
+  const createMagicLink = () => {
     if (newLinkName && newLinkExpiry && newLinkScope) {
       const newLink: GuestLink = {
         id: Date.now().toString(),
@@ -187,7 +209,7 @@ function AccessControlContent() {
   }
 
   const copyLink = (linkId: string) => {
-    navigator.clipboard.writeText(`https://launch.contentstack.com/invite/${linkId}`)
+    navigator.clipboard.writeText(`https://launch.contentstack.com/magic/${linkId}`)
   }
 
   const revokeLink = (linkId: string) => {
@@ -265,11 +287,107 @@ function AccessControlContent() {
 
         case "contentstack":
           return (
-            <div className="flex items-center gap-2 p-4 bg-blue-50 rounded-lg">
-              <Info className="h-4 w-4 text-blue-600" />
-              <p className="text-sm text-blue-800">
-                Uses existing Contentstack session and role permissions. No additional configuration required.
-              </p>
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <Label className="text-sm font-medium">User Access</Label>
+                <RadioGroup value={contentstackUserMode} onValueChange={setContentstackUserMode}>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="all" id="all-users" />
+                    <Label htmlFor="all-users" className="cursor-pointer">
+                      Allow all Contentstack users
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="specific" id="specific-users" />
+                    <Label htmlFor="specific-users" className="cursor-pointer">
+                      Add specific users
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              {contentstackUserMode === "all" && (
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Info className="h-4 w-4 text-blue-600" />
+                    <p className="text-sm text-blue-800">
+                      All users with Contentstack accounts will be able to access this environment using their existing credentials.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {contentstackUserMode === "specific" && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Select Users</Label>
+                    <div className="space-y-3">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          placeholder="Search users by name, email, or role..."
+                          value={userSearchTerm}
+                          onChange={(e) => setUserSearchTerm(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
+                      <div className="max-h-48 overflow-y-auto border rounded-lg p-2">
+                        <div className="space-y-2">
+                                                    {filteredContentstackUsers.length > 0 ? (
+                             filteredContentstackUsers.map((user) => (
+                              <div key={user.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded">
+                                <Checkbox
+                                  id={`user-${user.id}`}
+                                  checked={selectedContentstackUsers.includes(user.id)}
+                                  onCheckedChange={() => handleContentstackUserToggle(user.id)}
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <Label htmlFor={`user-${user.id}`} className="font-medium cursor-pointer">
+                                        {user.name}
+                                      </Label>
+                                      <p className="text-sm text-gray-500">{user.email}</p>
+                                    </div>
+                                    <Badge variant="outline" className="text-xs">
+                                      {user.role}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              </div>
+                             ))
+                          ) : (
+                            <div className="p-4 text-center text-gray-500">
+                              <p className="text-sm">No users found matching your search.</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {selectedContentstackUsers.length > 0 && (
+                    <div className="p-3 bg-green-50 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Users className="h-4 w-4 text-green-600" />
+                        <span className="text-sm font-medium text-green-900">
+                          {selectedContentstackUsers.length} user{selectedContentstackUsers.length !== 1 ? 's' : ''} selected
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedContentstackUsers.map((userId) => {
+                          const user = contentstackUsers.find(u => u.id === userId)
+                          return (
+                            <Badge key={userId} variant="secondary" className="text-xs">
+                              {user?.name}
+                            </Badge>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )
 
@@ -301,66 +419,23 @@ function AccessControlContent() {
             </div>
           )
 
-        case "email":
-          return (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email-whitelist">Allowed Emails/Domains</Label>
-                <Textarea
-                  id="email-whitelist"
-                  placeholder="user@company.com&#10;@company.com&#10;admin@example.org"
-                  rows={4}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="link-expiry">Magic Link Expiry</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select expiry time" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1h">1 hour</SelectItem>
-                    <SelectItem value="6h">6 hours</SelectItem>
-                    <SelectItem value="24h">24 hours</SelectItem>
-                    <SelectItem value="7d">7 days</SelectItem>
-                    <SelectItem value="30d">30 days</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )
-
-        case "ip":
-          return (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="ip-ranges">IP Addresses / CIDR Ranges</Label>
-                <Textarea id="ip-ranges" placeholder="192.168.1.0/24&#10;10.0.0.1&#10;203.0.113.0/24" rows={4} />
-              </div>
-              <div className="flex items-center space-x-2">
-                <Switch id="block-mode" checked={isBlockMode} onCheckedChange={setIsBlockMode} />
-                <Label htmlFor="block-mode">{isBlockMode ? "Block listed IPs" : "Allow listed IPs only"}</Label>
-              </div>
-            </div>
-          )
-
-        case "guest":
+        case "magic-link":
           return (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <h4 className="text-sm font-medium">Invitation Links</h4>
+                <h4 className="text-sm font-medium">Magic Links</h4>
                 <Dialog open={isCreateLinkOpen} onOpenChange={setIsCreateLinkOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm">
                       <Plus className="h-4 w-4 mr-2" />
-                      Create Link
+                      Create Magic Link
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Create Invitation Link</DialogTitle>
+                      <DialogTitle>Create Magic Link</DialogTitle>
                       <DialogDescription>
-                        Generate a temporary link for guest access to this environment.
+                        Generate a shareable magic link for access to this environment.
                       </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
@@ -370,7 +445,7 @@ function AccessControlContent() {
                           id="link-name"
                           value={newLinkName}
                           onChange={(e) => setNewLinkName(e.target.value)}
-                          placeholder="e.g., Client Review"
+                          placeholder="e.g., Client Access"
                         />
                       </div>
                       <div className="space-y-2">
@@ -380,22 +455,24 @@ function AccessControlContent() {
                             <SelectValue placeholder="Select expiry" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="1 day">1 day</SelectItem>
-                            <SelectItem value="7 days">7 days</SelectItem>
-                            <SelectItem value="30 days">30 days</SelectItem>
-                            <SelectItem value="90 days">90 days</SelectItem>
+                            <SelectItem value="1h">1 hour</SelectItem>
+                            <SelectItem value="6h">6 hours</SelectItem>
+                            <SelectItem value="24h">24 hours</SelectItem>
+                            <SelectItem value="7d">7 days</SelectItem>
+                            <SelectItem value="30d">30 days</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="scope">Scope</Label>
+                        <Label htmlFor="scope">Permissions</Label>
                         <Select value={newLinkScope} onValueChange={setNewLinkScope}>
                           <SelectTrigger>
                             <SelectValue placeholder="Select permissions" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="view">View only</SelectItem>
-                            <SelectItem value="comment">View & Comment</SelectItem>
+                            <SelectItem value="edit">View & Edit</SelectItem>
+                            <SelectItem value="full">Full access</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -404,7 +481,7 @@ function AccessControlContent() {
                       <Button variant="outline" onClick={() => setIsCreateLinkOpen(false)}>
                         Cancel
                       </Button>
-                      <Button onClick={createGuestLink}>Create Link</Button>
+                      <Button onClick={createMagicLink}>Create Link</Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
@@ -416,7 +493,7 @@ function AccessControlContent() {
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>Expires</TableHead>
-                      <TableHead>Scope</TableHead>
+                      <TableHead>Permissions</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
@@ -449,6 +526,22 @@ function AccessControlContent() {
               )}
             </div>
           )
+
+        case "ip":
+          return (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="ip-ranges">IP Addresses / CIDR Ranges</Label>
+                <Textarea id="ip-ranges" placeholder="192.168.1.0/24&#10;10.0.0.1&#10;203.0.113.0/24" rows={4} />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch id="block-mode" checked={isBlockMode} onCheckedChange={setIsBlockMode} />
+                <Label htmlFor="block-mode">{isBlockMode ? "Block listed IPs" : "Allow listed IPs only"}</Label>
+              </div>
+            </div>
+          )
+
+
 
         case "geo":
           return (
@@ -516,6 +609,28 @@ function AccessControlContent() {
 
   return (
     <div className="space-y-6">
+      {selectedOptions.length > 1 && (
+        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="flex items-center gap-2 mb-2">
+            <Shield className="h-4 w-4 text-blue-600" />
+            <span className="font-medium text-blue-900">Active Security Layers</span>
+          </div>
+          <div className="flex flex-wrap gap-2 mb-2">
+            {selectedOptions.map((optionId) => {
+              const option = accessControlOptions.find((opt) => opt.id === optionId)
+              return (
+                <Badge key={optionId} variant="secondary" className="bg-blue-100 text-blue-800">
+                  {option?.label}
+                </Badge>
+              )
+            })}
+          </div>
+          <p className="text-sm text-blue-700">
+            Users will need to satisfy all selected authentication methods to access this environment.
+          </p>
+        </div>
+      )}
+
       <div>
         <p className="text-gray-600 mb-6">
           Configure advanced access control for this environment. You can select multiple authentication methods to
@@ -578,27 +693,6 @@ function AccessControlContent() {
         </div>
       </div>
 
-      {selectedOptions.length > 1 && (
-        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <div className="flex items-center gap-2 mb-2">
-            <Shield className="h-4 w-4 text-blue-600" />
-            <span className="font-medium text-blue-900">Active Security Layers</span>
-          </div>
-          <div className="flex flex-wrap gap-2 mb-2">
-            {selectedOptions.map((optionId) => {
-              const option = accessControlOptions.find((opt) => opt.id === optionId)
-              return (
-                <Badge key={optionId} variant="secondary" className="bg-blue-100 text-blue-800">
-                  {option?.label}
-                </Badge>
-              )
-            })}
-          </div>
-          <p className="text-sm text-blue-700">
-            Users will need to satisfy all selected authentication methods to access this environment.
-          </p>
-        </div>
-      )}
     </div>
   )
 }
