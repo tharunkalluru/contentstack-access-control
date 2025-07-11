@@ -127,6 +127,7 @@ const contentstackUsers = [
 
 function AccessControlContent() {
   const [selectedOptions, setSelectedOptions] = useState<string[]>(["none"])
+  const [securityLogic, setSecurityLogic] = useState("and") // "and" or "or"
   const [showPassword, setShowPassword] = useState(false)
   const [password, setPassword] = useState("")
   const [isBlockMode, setIsBlockMode] = useState(false)
@@ -615,7 +616,7 @@ function AccessControlContent() {
             <Shield className="h-4 w-4 text-blue-600" />
             <span className="font-medium text-blue-900">Active Security Layers</span>
           </div>
-          <div className="flex flex-wrap gap-2 mb-2">
+          <div className="flex flex-wrap gap-2 mb-3">
             {selectedOptions.map((optionId) => {
               const option = accessControlOptions.find((opt) => opt.id === optionId)
               return (
@@ -625,8 +626,30 @@ function AccessControlContent() {
               )
             })}
           </div>
+          
+          <div className="mb-3">
+            <Label className="text-sm font-medium text-blue-900 mb-2 block">Security Logic</Label>
+            <RadioGroup value={securityLogic} onValueChange={setSecurityLogic} className="flex gap-4">
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="and" id="logic-and" />
+                <Label htmlFor="logic-and" className="text-sm text-blue-800 cursor-pointer">
+                  AND - Require all methods
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="or" id="logic-or" />
+                <Label htmlFor="logic-or" className="text-sm text-blue-800 cursor-pointer">
+                  OR - Require any method
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+
           <p className="text-sm text-blue-700">
-            Users will need to satisfy all selected authentication methods to access this environment.
+            {securityLogic === "and" 
+              ? "Users will need to satisfy ALL selected authentication methods to access this environment."
+              : "Users will need to satisfy ANY ONE of the selected authentication methods to access this environment."
+            }
           </p>
         </div>
       )}
